@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Custom Dataset & Model (Jangan di-upload ke GitHub)
+datasets/
+models/
+*.mp4
+*.h5
