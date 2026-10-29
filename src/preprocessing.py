@@ -1,77 +1,66 @@
 import cv2
 import numpy as np
 import mediapipe as mp
-import yaml
-import os
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
-class LivenessPreprocessor:
-    def __init__(self, config_path="configs/config.yaml"):
-        # Muat konfigurasi
-        with open(config_path, "r") as file:
-            self.config = yaml.safe_load(file)
+class FacePreprocessor:
+    def __init__(self, model_asset_path='blaze_face_short_range.tflite', margin_ratio=0.15):
+        self.margin = margin_ratio
         
-        self.target_size = tuple(self.config['preprocessing']['target_size'])
-        self.margin_ratio = self.config['preprocessing']['margin_ratio']
-        
-        # Inisialisasi MediaPipe Face Detection
-        self.mp_face_detection = mp.solutions.face_detection
-        self.face_detection = self.mp_face_detection.FaceDetection(
-            model_selection=0, 
-            min_detection_confidence=0.5
-        )
+        # Inisialisasi MediaPipe Tasks API
+        base_options = python.BaseOptions(model_asset_path=model_asset_path)
+        options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.7)
+        self.detector = vision.FaceDetector.create_from_options(options)
 
-    def crop_face(self, image_bgr):
-        """Mendeteksi wajah, menambahkan margin, dan memotong (crop) gambar."""
-        h, w, _ = image_bgr.shape
-        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        results = self.face_detection.process(image_rgb)
-
-        # Jika wajah tidak terdeteksi
-        if not results.detections:
+    def process_frame(self, frame):
+        """Memproses frame numpy array, crop wajah dengan margin, dan ekstrak 2D FFT."""
+        if frame is None:
             return None
 
-        # Ambil wajah pertama dengan confidence tertinggi
-        detection = results.detections[0]
-        bboxC = detection.location_data.relative_bounding_box
-
-        # Konversi bounding box relatif ke piksel absolut
-        xmin = int(bboxC.xmin * w)
-        ymin = int(bboxC.ymin * h)
-        box_w = int(bboxC.width * w)
-        box_h = int(bboxC.height * h)
-
-        # Hitung margin untuk menangkap area tepi (bezel HP jika ada)
-        dw = int(box_w * self.margin_ratio)
-        dh = int(box_h * self.margin_ratio)
-
-        # Tentukan batas crop agar tidak keluar dari dimensi gambar
-        xmin_m = max(0, xmin - dw)
-        ymin_m = max(0, ymin - dh)
-        xmax_m = min(w, xmin + box_w + dw)
-        ymax_m = min(h, ymin + box_h + dh)
-
-        cropped_face = image_bgr[ymin_m:ymax_m, xmin_m:xmax_m]
+        h_img, w_img, _ = frame.shape
+        rgb_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        if cropped_face.size == 0:
+        # Konversi numpy array ke format mp.Image untuk Tasks API
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_img)
+
+        detection_result = self.detector.detect(mp_image)
+
+        if not detection_result.detections:
             return None
 
-        return cv2.resize(cropped_face, self.target_size)
+        bbox = detection_result.detections[0].bounding_box
+        x, y, w, h = bbox.origin_x, bbox.origin_y, bbox.width, bbox.height
 
-    def extract_fft(self, face_bgr):
-        """Mengekstrak fitur spektrum frekuensi 2D menggunakan Fast Fourier Transform."""
-        gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
+        margin_w = int(w * self.margin)
+        margin_h = int(h * self.margin)
+
+        x_min = max(0, x - margin_w)
+        y_min = max(0, y - margin_h)
+        x_max = min(w_img, x + w + margin_w)
+        y_max = min(h_img, y + h + margin_h)
+
+        face_crop = frame[y_min:y_max, x_min:x_max]
         
-        # 2D FFT & geser frekuensi rendah ke tengah (center)
+        # Hindari error jika hasil crop kosong (dimensi 0) akibat boundary box di luar batas gambar
+        if face_crop.size == 0:
+            return None
+            
+        fft_magnitude = self._compute_2d_fft(face_crop)
+
+        return face_crop, fft_magnitude
+
+    def _compute_2d_fft(self, face_image):
+        gray = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.equalizeHist(gray)
+        
         f = np.fft.fft2(gray)
         fshift = np.fft.fftshift(f)
         
-        # Hitung Magnitude Spectrum dengan skala logaritmik
         magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-8)
+        magnitude_normalized = cv2.normalize(magnitude_spectrum, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
         
-        # Normalisasi ke 0-255 (format citra)
-        normalized = cv2.normalize(magnitude_spectrum, None, 0, 255, cv2.NORM_MINMAX)
-        fft_uint8 = normalized.astype(np.uint8)
+        fft_resized = cv2.resize(magnitude_normalized, (224, 224))
+        fft_3channel = cv2.cvtColor(fft_resized, cv2.COLOR_GRAY2BGR)
         
-        # Konversi ke pseudo-RGB (3 channel) agar bisa masuk ke MobileNetV3
-        fft_rgb = cv2.cvtColor(fft_uint8, cv2.COLOR_GRAY2RGB)
-        return fft_rgb
+        return fft_3channel

@@ -224,3 +224,7 @@ datasets/
 models/
 *.mp4
 *.h5
+
+data/
+*.jpg
+*.png
