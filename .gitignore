@@ -224,3 +224,10 @@ datasets/
 models/
 *.mp4
 *.h5
+<<<<<<< HEAD
+=======
+
+data/
+*.jpg
+*.png
+>>>>>>> f00acb4 (ui AI banget, ga kedetect model)

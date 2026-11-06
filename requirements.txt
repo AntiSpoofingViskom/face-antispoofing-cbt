@@ -1,0 +1,31 @@
+# ============================================================
+# requirements.txt — Face Liveness Detection
+# Target: Python 3.12.x (3.14 TIDAK kompatibel dengan TF & MediaPipe)
+# ============================================================
+
+# --- Deep Learning Framework ---
+# TF 2.18 = versi stabil terakhir yang support Python 3.12
+tensorflow==2.18.0
+
+# --- Computer Vision & Face Detection ---
+mediapipe==0.10.21
+opencv-python==4.10.0.84
+
+# --- Array & Data ---
+numpy==1.26.4
+
+# --- Web UI ---
+streamlit==1.40.2
+streamlit-webrtc==0.47.9
+av==13.1.0
+
+# --- Image Processing ---
+pillow==10.4.0
+
+# --- Data & Config ---
+pandas==2.2.3
+scikit-learn==1.5.2
+pyyaml==6.0.2
+
+# --- Visualisasi ---
+matplotlib==3.9.2
