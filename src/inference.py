@@ -4,7 +4,7 @@ import tensorflow as tf
 from src.preprocessing import FacePreprocessor
 
 class LivenessDetector:
-    def __init__(self, model_path):
+    def __init__(self, model_path="models/antispoofing_model.keras"):
         self.model = tf.keras.models.load_model(model_path)
         self.preprocessor = FacePreprocessor(margin_ratio=0.15)
         
@@ -17,6 +17,12 @@ class LivenessDetector:
             
         if img is None:
             return "Gambar tidak ditemukan", 0.0
+            
+        # --- PERBAIKAN FATAL: KONVERSI WARNA BGR KE RGB ---
+        # Mengubah warna dari standar OpenCV (BGR) ke standar TensorFlow (RGB)
+        # agar model AI tidak melihat wajahmu berwarna biru.
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # --------------------------------------------------
             
         result = self.preprocessor.process_frame(img)
         if result is None:
