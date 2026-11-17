@@ -13,8 +13,15 @@ class FacePreprocessor:
         options = vision.FaceDetectorOptions(base_options=base_options, min_detection_confidence=0.7)
         self.detector = vision.FaceDetector.create_from_options(options)
 
-    def process_frame(self, frame):
-        """Memproses frame numpy array, crop wajah dengan margin, dan ekstrak 2D FFT."""
+    def process_frame(self, frame, return_bbox=False):
+        """Memproses frame numpy array, crop wajah dengan margin, dan ekstrak 2D FFT.
+
+        Args:
+            frame: Frame BGR (numpy array) dari webcam/video.
+            return_bbox: Jika True, kembalikan juga koordinat crop wajah
+                ``(x_min, y_min, x_max, y_max)`` agar UI dapat menggambar
+                bounding box. Default False agar kompatibel dengan pemanggil lama.
+        """
         if frame is None:
             return None
 
@@ -47,6 +54,9 @@ class FacePreprocessor:
             return None
             
         fft_magnitude = self._compute_2d_fft(face_crop)
+
+        if return_bbox:
+            return face_crop, fft_magnitude, (x_min, y_min, x_max, y_max)
 
         return face_crop, fft_magnitude
 
