@@ -1,24 +1,26 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras import layers, models
 from model import build_model
 import os
 
-# 1. Konfigurasi Path dan Parameter (Sudah kamu ubah)
-# 1. Konfigurasi Path dan Parameter
-RGB_DIR = 'data/processed/rgb/train'
-FFT_DIR = 'data/processed/fft/train'
+# --- PERBAIKAN PATH ABSOLUT ---
+# Dapatkan lokasi absolut folder utama proyek (naik 1 level dari folder 'src')
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# 1. Konfigurasi Path dan Parameter (Sambungkan dengan BASE_DIR)
+RGB_DIR = os.path.join(BASE_DIR, 'data', 'processed', 'rgb', 'train')
+FFT_DIR = os.path.join(BASE_DIR, 'data', 'processed', 'fft', 'train')
 BATCH_SIZE = 32
 IMG_SIZE = (224, 224)
 SEED = 123
 
-# 2. Memuat Dataset dengan Validation Split (YANG DIUBAH)
+# 2. Memuat Dataset dengan Validation Split
 def load_dataset(directory, subset):
     return tf.keras.utils.image_dataset_from_directory(
         directory,
-        validation_split=0.2, # Menyisihkan 20% data untuk validasi
-        subset=subset,        # Menentukan 'training' atau 'validation'
+        validation_split=0.2,
+        subset=subset,
         labels='inferred',
         label_mode='binary',
         batch_size=BATCH_SIZE,
@@ -35,47 +37,21 @@ print("Memuat dataset FFT...")
 fft_train = load_dataset(FFT_DIR, "training")
 fft_val = load_dataset(FFT_DIR, "validation")
 
-# Menggabungkan RGB dan FFT
+# PERBAIKAN PENTING: Gunakan format Dictionary untuk input agar tidak salah masuk pintu
 def combine_datasets(rgb, fft):
     return tf.data.Dataset.zip((rgb, fft)).map(
-        lambda rgb_data, fft_data: ((rgb_data[0], fft_data[0]), rgb_data[1])
+        lambda rgb_data, fft_data: ({'rgb_input': rgb_data[0], 'fft_input': fft_data[0]}, rgb_data[1])
     )
 
 train_ds = combine_datasets(rgb_train, fft_train)
-val_ds = combine_datasets(rgb_val, fft_val) # Dataset validasi gabungan
+val_ds = combine_datasets(rgb_val, fft_val)
 
-# 3. Membangun Arsitektur Dual-Stream CNN (TETAP SAMA)
-input_rgb = layers.Input(shape=(224, 224, 3), name='rgb_input')
-x1 = layers.Rescaling(1./255)(input_rgb)
-x1 = layers.Conv2D(32, (3, 3), activation='relu')(x1)
-x1 = layers.MaxPooling2D((2, 2))(x1)
-x1 = layers.Conv2D(64, (3, 3), activation='relu')(x1)
-x1 = layers.MaxPooling2D((2, 2))(x1)
-x1 = layers.Flatten()(x1)
+# 3. Panggil Model Dual-Stream yang sudah dirapikan dari model.py
+model = build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3))
 
-input_fft = layers.Input(shape=(224, 224, 3), name='fft_input')
-x2 = layers.Rescaling(1./255)(input_fft)
-x2 = layers.Conv2D(32, (3, 3), activation='relu')(x2)
-x2 = layers.MaxPooling2D((2, 2))(x2)
-x2 = layers.Conv2D(64, (3, 3), activation='relu')(x2)
-x2 = layers.MaxPooling2D((2, 2))(x2)
-x2 = layers.Flatten()(x2)
-
-merged = layers.Concatenate()([x1, x2])
-dense1 = layers.Dense(128, activation='relu')(merged)
-dense2 = layers.Dropout(0.5)(dense1)
-output = layers.Dense(1, activation='sigmoid', name='output')(dense2)
-
-model = build_model(input_shape=(224, 224, 3))
-
-# 4. Kompilasi dan Training Model dengan Checkpoint
-model.compile(optimizer='adam',
-              loss='binary_crossentropy',
-              metrics=['accuracy'])
-
-# Mengatur checkpoint untuk menyimpan model TERBAIK saja
+# 4. Mengatur Checkpoint
 checkpoint = ModelCheckpoint(
-    'models/antispoofing_model.h5', 
+    os.path.join(BASE_DIR, 'models', 'antispoofing_model.keras'),
     monitor='val_accuracy', 
     save_best_only=True, 
     mode='max', 
@@ -87,7 +63,7 @@ history = model.fit(
     train_ds,
     validation_data=val_ds,
     epochs=10,
-    callbacks=[checkpoint] # Tambahkan checkpoint di sini
+    callbacks=[checkpoint]
 )
 
 # 5. Menyimpan Grafik ke folder reports
