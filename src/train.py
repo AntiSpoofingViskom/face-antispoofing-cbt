@@ -8,11 +8,30 @@ import os
 # Dapatkan lokasi absolut folder utama proyek (naik 1 level dari folder 'src')
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-# 1. Konfigurasi Path dan Parameter (Sambungkan dengan BASE_DIR)
-RGB_DIR = os.path.join(BASE_DIR, 'data', 'processed', 'rgb', 'train')
-FFT_DIR = os.path.join(BASE_DIR, 'data', 'processed', 'fft', 'train')
-BATCH_SIZE = 32
-IMG_SIZE = (224, 224)
+import argparse
+import yaml
+
+# --- 1. Konfigurasi Argumen & Path ---
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', type=str, default='configs/config.yaml', help='Path ke file config.yaml')
+parser.add_argument('--data_dir', type=str, default=None, help='Override path folder data (misal untuk Google Drive)')
+args = parser.parse_args()
+
+# Baca Config
+with open(args.config, 'r') as f:
+    config = yaml.safe_load(f)
+
+# Dapatkan lokasi absolut folder utama proyek
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# Tentukan ROOT data (Gunakan data_dir jika ada, jika tidak pakai BASE_DIR)
+DATA_ROOT = args.data_dir if args.data_dir else BASE_DIR
+
+RGB_DIR = os.path.join(DATA_ROOT, config['paths']['processed_rgb'], 'train')
+FFT_DIR = os.path.join(DATA_ROOT, config['paths']['processed_fft'], 'train')
+BATCH_SIZE = config['training']['batch_size']
+IMG_SIZE = tuple(config['preprocessing']['target_size'])
+EPOCHS = config['training']['epochs']
 SEED = 123
 
 # 2. Memuat Dataset dengan Validation Split
@@ -46,15 +65,32 @@ def combine_datasets(rgb, fft):
 train_ds = combine_datasets(rgb_train, fft_train)
 val_ds = combine_datasets(rgb_val, fft_val)
 
-# 3. Panggil Model Dual-Stream yang sudah dirapikan dari model.py
+# 3. Hitung Class Weight secara otomatis
+def get_class_weights(directory):
+    classes = os.listdir(directory)
+    counts = []
+    for cls in classes:
+        count = len(os.listdir(os.path.join(directory, cls)))
+        counts.append(count)
+
+    total = sum(counts)
+    # Rumus: weight = total / (n_classes * count)
+    weights = {i: total / (len(counts) * count) for i, count in enumerate(counts)}
+    return weights
+
+print("Menghitung bobot kelas...")
+class_weights = get_class_weights(RGB_DIR)
+print(f"Bobot Kelas: {class_weights}")
+
+# 4. Panggil Model Dual-Stream yang sudah dirapikan dari model.py
 model = build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3))
 
-# 4. Mengatur Checkpoint
+# 5. Mengatur Checkpoint
 checkpoint = ModelCheckpoint(
     os.path.join(BASE_DIR, 'models', 'antispoofing_model.keras'),
-    monitor='val_accuracy', 
-    save_best_only=True, 
-    mode='max', 
+    monitor='val_accuracy',
+    save_best_only=True,
+    mode='max',
     verbose=1
 )
 
@@ -62,8 +98,9 @@ print("Memulai proses training beserta validasi...")
 history = model.fit(
     train_ds,
     validation_data=val_ds,
-    epochs=10,
-    callbacks=[checkpoint]
+    epochs=EPOCHS,
+    callbacks=[checkpoint],
+    class_weight=class_weights # Gunakan bobot di sini
 )
 
 # 5. Menyimpan Grafik ke folder reports
