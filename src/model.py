@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV3Small
-from tensorflow.keras.layers import Dense, Dropout, Input, Concatenate, Rescaling
+from tensorflow.keras.layers import Dense, Dropout, Input, Concatenate
 from tensorflow.keras.models import Model
 
 def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
@@ -20,11 +20,7 @@ def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
 
     augmented_rgb = data_augmentation(rgb_input)
 
-    # 3. Normalisasi pixel [0,255] -> [0,1]
-    rgb_scaled = Rescaling(1./255)(augmented_rgb)
-    fft_scaled = Rescaling(1./255)(fft_input)
-
-    # 4. STREAM 1 (RGB): MobileNetV3Small
+    # 3. STREAM 1 (RGB): MobileNetV3Small (preprocessing internal handles normalisasi)
     rgb_backbone = MobileNetV3Small(
         input_shape=rgb_shape,
         include_top=False,
@@ -32,9 +28,9 @@ def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
         pooling='avg',
         name='mobilenet_rgb'
     )
-    x1 = rgb_backbone(rgb_scaled)
+    x1 = rgb_backbone(augmented_rgb)
 
-    # 5. STREAM 2 (FFT): MobileNetV3Small
+    # 4. STREAM 2 (FFT): MobileNetV3Small
     fft_backbone = MobileNetV3Small(
         input_shape=fft_shape,
         include_top=False,
@@ -42,7 +38,7 @@ def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
         pooling='avg',
         name='mobilenet_fft'
     )
-    x2 = fft_backbone(fft_scaled)
+    x2 = fft_backbone(fft_input)
 
     # 6. Gabungkan fitur dari kedua stream
     merged = Concatenate()([x1, x2])

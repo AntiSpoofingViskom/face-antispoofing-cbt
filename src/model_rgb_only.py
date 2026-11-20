@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV3Small
-from tensorflow.keras.layers import Dense, Dropout, Input, Rescaling
+from tensorflow.keras.layers import Dense, Dropout, Input
 from tensorflow.keras.models import Model
 
 def build_model_rgb(input_shape=(224, 224, 3)):
@@ -19,10 +19,7 @@ def build_model_rgb(input_shape=(224, 224, 3)):
 
     augmented_rgb = data_augmentation(rgb_input)
 
-    # 3. Normalisasi
-    rgb_scaled = Rescaling(1./255)(augmented_rgb)
-
-    # 4. Backbone MobileNetV3Small
+    # 3. Backbone MobileNetV3Small (preprocessing internal handles normalisasi)
     backbone = MobileNetV3Small(
         input_shape=input_shape,
         include_top=False,
@@ -30,7 +27,7 @@ def build_model_rgb(input_shape=(224, 224, 3)):
         pooling='avg',
         name='mobilenet_rgb'
     )
-    x = backbone(rgb_scaled)
+    x = backbone(augmented_rgb)
 
     # 5. Kepala Klasifikasi (sama persis dengan dual-stream)
     x = Dense(128, activation='relu')(x)
