@@ -52,7 +52,8 @@ def main():
             out_path = os.path.join(SPLITS_DIR, f'fold_{fold_id}_{split_name}.txt')
             with open(out_path, 'w') as f:
                 for filepath, label in sorted(split_files):
-                    f.write(f"{filepath}\t{label}\n")
+                    filename = os.path.basename(filepath)
+                    f.write(f"{filename}\t{label}\n")
 
         print(f"Fold {fold_id}: train={len(train_files)}, dev={len(dev_files)}, test={len(test_files)} | test_cam={test_cam}, dev_cam={dev_cam}, train_cams={train_cams}")
 
