@@ -17,7 +17,7 @@ def process_video_to_frames(video_path, output_dir_rgb, output_dir_fft, label, p
         ret, frame = cap.read()
         if not ret:
             break
-            
+
         if frame_count % frame_skip == 0:
             result = preprocessor.process_frame(frame)
             if result is not None:
@@ -36,13 +36,13 @@ def process_single_image(image_path, output_dir_rgb, output_dir_fft, label, prep
     img = cv2.imread(image_path)
     if img is None:
         return 0
-        
+
     result = preprocessor.process_frame(img)
     if result is not None:
         rgb_face, fft_spectrum = result
         image_name = os.path.splitext(os.path.basename(image_path))[0]
         filename = f"{label}_img_{image_name}.jpg"
-        
+
         cv2.imwrite(os.path.join(output_dir_rgb, filename), rgb_face)
         cv2.imwrite(os.path.join(output_dir_fft, filename), fft_spectrum)
         return 1
@@ -51,40 +51,40 @@ def process_single_image(image_path, output_dir_rgb, output_dir_fft, label, prep
 def main():
     preprocessor = FacePreprocessor(margin_ratio=0.15)
     PROCESSED_DIR = "data/processed"
-    
+
     dataset_mapping = [
         ("data/raw/custom/bonafide", "train", "bonafide"),
-        ("data/raw/custom/spoof_replay", "train", "spoof"),
         ("data/raw/custom/spoof_print", "train", "spoof"),
         ("data/raw/oulu_npu/true", "train", "bonafide"),
         ("data/raw/oulu_npu/false", "train", "spoof")
     ]
-    
+
     total_extracted = 0
     print("Memulai pipeline ekstraksi data (RGB & FFT)...")
-    
+
+    # Proses dataset biasa
     for raw_dir, split, label in dataset_mapping:
         if not os.path.exists(raw_dir):
             continue
-            
+
         out_rgb = os.path.join(PROCESSED_DIR, "rgb", split, label)
         out_fft = os.path.join(PROCESSED_DIR, "fft", split, label)
         os.makedirs(out_rgb, exist_ok=True)
         os.makedirs(out_fft, exist_ok=True)
-        
+
         # Cari file video
         video_files = glob.glob(os.path.join(raw_dir, "*.mp4")) + glob.glob(os.path.join(raw_dir, "*.avi"))
         # Cari file gambar statis (JPG/PNG)
         image_files = glob.glob(os.path.join(raw_dir, "*.jpg")) + glob.glob(os.path.join(raw_dir, "*.png"))
-        
+
         if not video_files and not image_files:
             continue
-            
+
         for video_path in video_files:
             print(f"Memproses video: {video_path}...")
             saved = process_video_to_frames(video_path, out_rgb, out_fft, label, preprocessor, frame_skip=5)
             total_extracted += saved
-            
+
         if image_files:
             print(f"Memproses {len(image_files)} gambar statis dari {raw_dir}...")
             img_saved_count = 0
@@ -92,7 +92,35 @@ def main():
                 img_saved_count += process_single_image(img_path, out_rgb, out_fft, label, preprocessor)
             total_extracted += img_saved_count
 
-    print(f"Pipeline selesai! Total pasang gambar yang berhasil diekstrak: {total_extracted}")
+    # Proses spoof_replay dengan split train/test
+    replay_dir = "data/raw/custom/spoof_replay"
+    if os.path.exists(replay_dir):
+        print(f"\nMemproses spoof_replay dengan split train/test...")
+        replay_files = glob.glob(os.path.join(replay_dir, "*.jpg")) + glob.glob(os.path.join(replay_dir, "*.png"))
+
+        for img_path in replay_files:
+            basename = os.path.basename(img_path)
+
+            # Tentukan split berdasarkan nama file
+            if "_train_" in basename:
+                split = "train"
+            elif "_test_" in basename:
+                split = "test"
+            else:
+                print(f"⚠️ Skip {basename}: tidak ada marker train/test")
+                continue
+
+            out_rgb = os.path.join(PROCESSED_DIR, "rgb", split, "spoof")
+            out_fft = os.path.join(PROCESSED_DIR, "fft", split, "spoof")
+            os.makedirs(out_rgb, exist_ok=True)
+            os.makedirs(out_fft, exist_ok=True)
+
+            saved = process_single_image(img_path, out_rgb, out_fft, "spoof", preprocessor)
+            total_extracted += saved
+
+        print(f"  ✓ Spoof replay diproses (train + test split)")
+
+    print(f"\nPipeline selesai! Total pasang gambar yang berhasil diekstrak: {total_extracted}")
 
 if __name__ == "__main__":
     main()

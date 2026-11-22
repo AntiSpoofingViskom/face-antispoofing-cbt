@@ -17,13 +17,9 @@ class LivenessDetector:
             
         if img is None:
             return "Gambar tidak ditemukan", 0.0
-            
-        # --- PERBAIKAN FATAL: KONVERSI WARNA BGR KE RGB ---
-        # Mengubah warna dari standar OpenCV (BGR) ke standar TensorFlow (RGB)
-        # agar model AI tidak melihat wajahmu berwarna biru.
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # --------------------------------------------------
-            
+
+        # Preprocessor handle konversi warna dan FFT extraction
+        # Jangan konversi BGR ke RGB di sini—preprocessor sudah benar
         result = self.preprocessor.process_frame(img)
         if result is None:
             return "Wajah tidak terdeteksi", 0.0
