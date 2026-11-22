@@ -32,10 +32,19 @@ def processed_index(root, label, split="train"):
     directory = root / "data" / "processed" / "rgb" / split / label
     index = {}
     for path in directory.glob("*.jpg"):
-        # Remove prefix untuk matching
-        stem = path.stem.removeprefix(f"{label}_img_")
-        index[stem] = path
+        index[path.stem] = path
+        index[path.stem.removeprefix(f"{label}_img_")] = path
     return index
+
+
+def normalized_stem(name, label):
+    stem = Path(name).stem
+    return stem.removeprefix(f"{label}_img_")
+
+
+def find_processed(index, name, label):
+    stem = normalized_stem(name, label)
+    return index.get(stem) or index.get(f"{label}_img_{stem}")
 
 
 def load_entries(entries, rgb_index, fft_root, label_name, split="train"):
@@ -44,8 +53,7 @@ def load_entries(entries, rgb_index, fft_root, label_name, split="train"):
     fft_index = {path.name: path for path in fft_dir.glob("*.jpg")}
 
     for name, label in entries:
-        stem = Path(name).stem
-        rgb_path = rgb_index.get(stem)
+        rgb_path = find_processed(rgb_index, name, label_name)
         if rgb_path is None:
             continue
         fft_path = fft_index.get(rgb_path.name)

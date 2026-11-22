@@ -75,15 +75,15 @@ def load_fold_data(fold, root):
         images, labels = [], []
         for filename, label in entries:
             # Hapus prefix jika ada
-            stem = filename.replace('bonafide_img_', '').replace('spoof_img_', '')
-            stem = Path(stem).stem
+            stem = Path(filename).stem
+            if stem.startswith('bonafide_img_'):
+                stem = stem.removeprefix('bonafide_img_')
+            elif stem.startswith('spoof_img_'):
+                stem = stem.removeprefix('spoof_img_')
 
-            # Cari di index
-            found_path = None
-            for key, path in rgb_index.items():
-                if stem in key or key in stem:
-                    found_path = path
-                    break
+            found_path = rgb_index.get(stem)
+            if found_path is None:
+                found_path = rgb_index.get(f'bonafide_img_{stem}') or rgb_index.get(f'spoof_img_{stem}')
 
             if found_path is None:
                 continue
