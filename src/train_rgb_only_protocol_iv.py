@@ -1,4 +1,4 @@
-"""Train RGB-only baseline model with OULU-NPU Protocol IV splits."""
+"""Train RGB-only baseline model with OULU-NPU Protocol IV splits + spoof replay."""
 import argparse
 import os
 from pathlib import Path
@@ -33,9 +33,9 @@ def read_split(path):
     return entries
 
 
-def get_processed_index(root, label_name):
+def get_processed_index(root, label_name, split='train'):
     """Buat index file RGB yang ada di processed folder."""
-    rgb_dir = root / 'data' / 'processed' / 'rgb' / 'train' / label_name
+    rgb_dir = root / 'data' / 'processed' / 'rgb' / split / label_name
     index = {}
     if rgb_dir.exists():
         for path in rgb_dir.glob('*.jpg'):
@@ -45,7 +45,7 @@ def get_processed_index(root, label_name):
 
 
 def load_fold_data(fold, root):
-    """Load train dan dev set untuk satu fold."""
+    """Load train dan dev set untuk satu fold (include spoof replay)."""
     split_dir = root / 'data' / 'splits'
     train_file = split_dir / f'fold_{fold}_train.txt'
     dev_file = split_dir / f'fold_{fold}_dev.txt'
@@ -53,10 +53,22 @@ def load_fold_data(fold, root):
     train_entries = read_split(train_file)
     dev_entries = read_split(dev_file)
 
+    # Tambahkan custom bonafide ke train
+    custom_dir = root / 'data' / 'processed' / 'rgb' / 'train' / 'bonafide'
+    if custom_dir.exists():
+        custom_files = [p.name for p in custom_dir.glob("bonafide_img_*")]
+        train_entries.extend((name, 0) for name in custom_files)
+
+    # Tambahkan spoof replay TRAIN ke training
+    replay_dir = root / 'data' / 'processed' / 'rgb' / 'train' / 'spoof'
+    if replay_dir.exists():
+        replay_files = [p.name for p in replay_dir.glob("*_replay_train_*")]
+        train_entries.extend((name, 1) for name in replay_files)
+
     # Buat index semua file RGB yang sudah dipreprocess
     rgb_index = {}
     for label_name in ['bonafide', 'spoof']:
-        rgb_index.update(get_processed_index(root, label_name))
+        rgb_index.update(get_processed_index(root, label_name, split='train'))
 
     def load_images(entries):
         """Load gambar dari entries."""

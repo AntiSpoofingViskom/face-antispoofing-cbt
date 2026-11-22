@@ -1,4 +1,4 @@
-"""Train dual-stream model with OULU-NPU Protocol IV splits."""
+"""Train dual-stream model with OULU-NPU Protocol IV splits + spoof replay."""
 import argparse
 import glob
 import os
@@ -28,14 +28,14 @@ def read_split(path):
     return entries
 
 
-def processed_index(root, label):
-    directory = root / "data" / "processed" / "rgb" / "train" / label
+def processed_index(root, label, split="train"):
+    directory = root / "data" / "processed" / "rgb" / split / label
     return {path.stem.removeprefix(f"{label}_img_"): path for path in directory.glob("*.jpg")}
 
 
-def load_entries(entries, rgb_index, fft_root, label_name):
+def load_entries(entries, rgb_index, fft_root, label_name, split="train"):
     rgb_images, fft_images, labels = [], [], []
-    fft_dir = fft_root / "data" / "processed" / "fft" / "train" / label_name
+    fft_dir = fft_root / "data" / "processed" / "fft" / split / label_name
     fft_index = {path.name: path for path in fft_dir.glob("*.jpg")}
 
     for name, label in entries:
@@ -70,15 +70,21 @@ def load_fold(fold, root):
     custom_files = [p.name for p in custom_dir.glob("bonafide_img_*")]
     train_entries.extend((name.removeprefix("bonafide_img_"), 0) for name in custom_files)
 
+    # Tambahkan spoof replay TRAIN ke training (file dengan _replay_train_)
+    replay_dir = root / "data" / "processed" / "rgb" / "train" / "spoof"
+    if replay_dir.exists():
+        replay_files = [p.name for p in replay_dir.glob("*_replay_train_*")]
+        train_entries.extend((name, 1) for name in replay_files)  # label 1 = spoof
+
     rgb_index = {}
     for label in ("bonafide", "spoof"):
-        rgb_index.update(processed_index(root, label))
+        rgb_index.update(processed_index(root, label, split="train"))
 
     def load(entries):
         rgb, fft, labels = [], [], []
         for label_name, label_value in (("bonafide", 0), ("spoof", 1)):
             selected = [(name, label) for name, label in entries if label == label_value]
-            r, f, y = load_entries(selected, rgb_index, root, label_name)
+            r, f, y = load_entries(selected, rgb_index, root, label_name, split="train")
             rgb.extend(r); fft.extend(f); labels.extend(y)
         return np.asarray(rgb, dtype=np.float32), np.asarray(fft, dtype=np.float32), np.asarray(labels, dtype=np.float32)
 
@@ -88,7 +94,7 @@ def load_fold(fold, root):
 def make_dataset(data, batch_size, shuffle):
     rgb, fft, labels = data
     ds = tf.data.Dataset.from_tensor_slices(({"rgb_input": rgb, "fft_input": fft}, labels))
-    return ds.shuffle(len(labels), seed=SEED) .batch(batch_size).prefetch(tf.data.AUTOTUNE) if shuffle else ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    return ds.shuffle(len(labels), seed=SEED).batch(batch_size).prefetch(tf.data.AUTOTUNE) if shuffle else ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
 
 def train_fold(fold, epochs, batch_size, root, output_dir):
