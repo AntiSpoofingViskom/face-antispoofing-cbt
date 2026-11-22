@@ -5,6 +5,7 @@ import urllib.request
 import cv2
 
 from src.inference import LivenessDetector
+from src.face_recognizer import FaceRecognizer
 
 
 HISTORY_LENGTH = 30
@@ -40,7 +41,8 @@ def main():
         return
 
     detector = LivenessDetector(model_path=model_path)
-    print("Model berhasil dimuat!")
+    recognizer = FaceRecognizer()
+    print("Model liveness dan face recognition berhasil dimuat!")
 
     cascade_path = "haarcascade_frontalface_default.xml"
     if not os.path.exists(cascade_path):
@@ -95,7 +97,11 @@ def main():
                     final_label = "Real (Bonafide)" if is_real else "Fake (Spoof)"
                     color = (0, 255, 0) if is_real else (0, 0, 255)
                     avg_conf = sum(conf_buffer) / len(conf_buffer)
-                    text = f"{final_label} ({avg_conf:.1f}%)"
+                    if is_real:
+                        identity, _ = recognizer.predict(face_crop)
+                        text = f"{final_label} - {identity} ({avg_conf:.1f}%)"
+                    else:
+                        text = f"{final_label} ({avg_conf:.1f}%)"
 
             cv2.rectangle(frame, (x, y), (x + w_box, y + h_box), color, 2)
             cv2.putText(frame, text, (x, max(25, y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
