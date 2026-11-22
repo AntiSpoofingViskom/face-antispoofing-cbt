@@ -4,7 +4,7 @@ import tensorflow as tf
 from src.preprocessing import FacePreprocessor
 
 class LivenessDetector:
-    def __init__(self, model_path):
+    def __init__(self, model_path="models/antispoofing_model.keras"):
         self.model = tf.keras.models.load_model(model_path)
         self.preprocessor = FacePreprocessor(margin_ratio=0.15)
         
@@ -17,7 +17,9 @@ class LivenessDetector:
             
         if img is None:
             return "Gambar tidak ditemukan", 0.0
-            
+
+        # Preprocessor handle konversi warna dan FFT extraction
+        # Jangan konversi BGR ke RGB di sini—preprocessor sudah benar
         result = self.preprocessor.process_frame(img)
         if result is None:
             return "Wajah tidak terdeteksi", 0.0
