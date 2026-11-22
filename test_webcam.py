@@ -9,6 +9,7 @@ from src.face_recognizer import FaceRecognizer
 
 
 HISTORY_LENGTH = 30
+MAX_MISSED_FRAMES = 12
 MIN_FACE_SIZE = 120
 MIN_BRIGHTNESS = 35
 MAX_BRIGHTNESS = 220
@@ -55,6 +56,8 @@ def main():
     face_cascade = cv2.CascadeClassifier(cascade_path)
     label_buffer = collections.deque(maxlen=HISTORY_LENGTH)
     conf_buffer = collections.deque(maxlen=HISTORY_LENGTH)
+    identity_buffer = collections.deque(maxlen=HISTORY_LENGTH)
+    missed_frames = 0
 
     print("\nMembuka kamera... Tekan 'q' untuk menutup program.")
     cap = cv2.VideoCapture(0)
@@ -70,19 +73,26 @@ def main():
         )
 
         if len(faces) == 0:
-            label_buffer.clear()
-            conf_buffer.clear()
-            cv2.putText(frame, "Wajah tidak terdeteksi", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
+            missed_frames += 1
+            if missed_frames > MAX_MISSED_FRAMES:
+                label_buffer.clear()
+                conf_buffer.clear()
+                identity_buffer.clear()
+                missed_frames = 0
+            cv2.putText(frame, "Mencari wajah...", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
         else:
+            missed_frames = 0
             x, y, w_box, h_box = max(faces, key=lambda box: box[2] * box[3])
             face_crop = frame[y:y + h_box, x:x + w_box]
             warning = quality_message(face_crop)
 
             if warning:
-                label_buffer.clear()
-                conf_buffer.clear()
                 color = (0, 165, 255)
                 text = warning
+                # Tetap prediksi liveness untuk update buffer (tanpa masukkan ke buffer)
+                raw_label, raw_confidence = detector.predict(face_crop)
+                # Jangan masukkan ke buffer saat warning
+                # Jangan clear buffer saat warning - biarkan buffer tetap
             else:
                 raw_label, raw_confidence = detector.predict(face_crop)
                 label_buffer.append(1 if "Real" in raw_label else 0)
@@ -99,8 +109,15 @@ def main():
                     avg_conf = sum(conf_buffer) / len(conf_buffer)
                     if is_real:
                         identity, _ = recognizer.predict(face_crop)
-                        text = f"{final_label} - {identity} ({avg_conf:.1f}%)"
+                        identity_buffer.append(identity)
+                        known_identities = [name for name in identity_buffer if name != "Tidak dikenal"]
+                        if known_identities:
+                            stable_identity, votes = collections.Counter(known_identities).most_common(1)[0]
+                            text = f"{final_label} - {stable_identity} ({avg_conf:.1f}%)" if votes >= 10 else f"{final_label} - mengenali... ({avg_conf:.1f}%)"
+                        else:
+                            text = f"{final_label} - Tidak dikenal ({avg_conf:.1f}%)"
                     else:
+                        identity_buffer.clear()
                         text = f"{final_label} ({avg_conf:.1f}%)"
 
             cv2.rectangle(frame, (x, y), (x + w_box, y + h_box), color, 2)

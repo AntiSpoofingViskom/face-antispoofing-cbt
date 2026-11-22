@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import cv2
@@ -14,6 +13,7 @@ class FaceRecognizer:
         self.names = {"person1": "Dean", "person2": "Misael", "person3": "Zahran"}
         self.detector = cv2.CascadeClassifier(cascade_path)
         self.model = cv2.face.LBPHFaceRecognizer_create()
+        self.face_size = (128, 128)
         self._train(Path(reference_dir))
 
     def _train(self, reference_dir):
@@ -31,7 +31,8 @@ class FaceRecognizer:
                 continue
             x, y, w, h = max(detected, key=lambda box: box[2] * box[3])
             person_id = label_ids.setdefault(person, len(label_ids))
-            faces.append(image[y:y + h, x:x + w])
+            face = image[y:y + h, x:x + w]
+            faces.append(cv2.resize(face, self.face_size))
             labels.append(person_id)
 
         if not faces:
@@ -40,13 +41,13 @@ class FaceRecognizer:
         self.model.train(faces, np.asarray(labels, dtype=np.int32))
 
     def predict(self, face_crop):
-        gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
-        detected = self.detector.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
-        if len(detected) == 0:
+        # face_crop sudah dipotong oleh detector webcam; jangan deteksi ulang.
+        if face_crop is None or face_crop.size == 0:
             return "Tidak dikenal", 0.0
-        x, y, w, h = max(detected, key=lambda box: box[2] * box[3])
-        label_id, distance = self.model.predict(gray[y:y + h, x:x + w])
-        # LBPH distance: lower is better. 100 is conservative unknown cutoff.
+        gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+        face = cv2.resize(gray, self.face_size)
+        label_id, distance = self.model.predict(face)
+        # LBPH distance: lower is better. 70 is stricter unknown cutoff.
         if distance > 100:
             return "Tidak dikenal", distance
         return self.id_to_name.get(label_id, "Tidak dikenal"), distance
