@@ -30,7 +30,12 @@ def read_split(path):
 
 def processed_index(root, label, split="train"):
     directory = root / "data" / "processed" / "rgb" / split / label
-    return {path.stem.removeprefix(f"{label}_img_"): path for path in directory.glob("*.jpg")}
+    index = {}
+    for path in directory.glob("*.jpg"):
+        # Remove prefix untuk matching
+        stem = path.stem.removeprefix(f"{label}_img_")
+        index[stem] = path
+    return index
 
 
 def load_entries(entries, rgb_index, fft_root, label_name, split="train"):
