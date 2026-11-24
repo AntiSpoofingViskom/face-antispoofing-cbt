@@ -6,7 +6,9 @@ from src.inference import LivenessDetector
 
 def main():
     print("Memuat model AI...")
-    model_path = "models/antispoofing_model.h5"
+    model_path = "models/model.weights.h5"
+    if not os.path.exists(model_path):
+        model_path = "models/antispoofing_model.h5"
     
     if not os.path.exists(model_path):
         print(f"Error: Model tidak ditemukan di {model_path}")

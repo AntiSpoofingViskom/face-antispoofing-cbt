@@ -27,6 +27,7 @@ class FacePreprocessor:
 
         h_img, w_img, _ = frame.shape
         rgb_img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb_img = np.ascontiguousarray(rgb_img)
         
         # Konversi numpy array ke format mp.Image untuk Tasks API
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_img)
