@@ -1,7 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV3Small
-from tensorflow.keras.layers import Dense, Dropout, Input
-from tensorflow.keras.models import Model
+from keras.applications import MobileNetV3Small
+from keras.layers import Dense, Dropout, Input
+from keras.models import Model
 
 def build_model_rgb(input_shape=(224, 224, 3)):
     """Model baseline single-stream RGB dengan MobileNetV3Small."""

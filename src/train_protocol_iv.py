@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import yaml
-from tensorflow.keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 
 from model import build_model
 
