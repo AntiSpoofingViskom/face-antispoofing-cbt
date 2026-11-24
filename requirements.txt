@@ -6,6 +6,7 @@ pandas==3.1.1
 matplotlib==3.11.2
 pillow==13.0.0
 pyyaml==6.0.1
+
 # scikit-learn sengaja tidak dipakai: versi lama bentrok dengan NumPy 2.x
 # (Keras mengimpornya bila ada, lalu gagal dengan "numpy.dtype size changed").
 # Streamlit 1.67 is the first line allowing pillow 13 (pillow<14),

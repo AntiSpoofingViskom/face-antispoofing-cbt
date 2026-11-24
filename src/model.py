@@ -1,37 +1,55 @@
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV3Small
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.layers import Dense, Dropout, Input, Concatenate
 from tensorflow.keras.models import Model
 
-def build_model(input_shape=(224, 224, 3)):
-    """Membangun arsitektur model MobileNetV3-Small untuk klasifikasi biner."""
+def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
+    """Membangun arsitektur model Dual-Input dengan MobileNetV3Small."""
     
-    # 1. Panggil "otak dasar" MobileNetV3-Small bawaan TensorFlow
-    # include_top=False artinya kita membuang lapisan klasifikasi bawaannya 
-    # karena kita hanya ingin menebak 2 kondisi (Asli/Palsu), bukan 1000 objek.
-    base_model = MobileNetV3Small(
-        input_shape=input_shape,
+    # 1. Definisikan Input
+    rgb_input = Input(shape=rgb_shape, name='rgb_input')
+    fft_input = Input(shape=fft_shape, name='fft_input')
+
+    # 2. Augmentasi (Hanya untuk RGB)
+    data_augmentation = tf.keras.Sequential([
+        tf.keras.layers.RandomFlip("horizontal"),
+        tf.keras.layers.RandomRotation(0.1),
+        tf.keras.layers.RandomBrightness(factor=0.15),
+        tf.keras.layers.RandomContrast(factor=0.15),
+    ], name='rgb_augmentation')
+
+    augmented_rgb = data_augmentation(rgb_input)
+
+    # 3. STREAM 1 (RGB): MobileNetV3Small (preprocessing internal handles normalisasi)
+    rgb_backbone = MobileNetV3Small(
+        input_shape=rgb_shape,
         include_top=False,
-        weights='imagenet'
+        weights='imagenet',
+        pooling='avg',
+        name='mobilenet_rgb'
     )
+    x1 = rgb_backbone(augmented_rgb)
 
-    # 2. Bekukan (freeze) otak dasar ini agar kepintaran awalnya tidak rusak saat dilatih
-    base_model.trainable = False 
+    # 4. STREAM 2 (FFT): MobileNetV3Small
+    fft_backbone = MobileNetV3Small(
+        input_shape=fft_shape,
+        include_top=False,
+        weights='imagenet',
+        pooling='avg',
+        name='mobilenet_fft'
+    )
+    x2 = fft_backbone(fft_input)
 
-    # 3. Buat "kepala" baru khusus untuk Anti-Spoofing
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    x = Dropout(0.2)(x) # Mencegah overfitting (agar tidak terlalu menghafal)
+    # 6. Gabungkan fitur dari kedua stream
+    merged = Concatenate()([x1, x2])
     
-    # 4. Lapisan Output: 1 Neuron (karena biner)
-    # Activation 'sigmoid' akan mengeluarkan nilai dari 0.0 sampai 1.0
-    # Misal: < 0.5 = Bonafide (Asli), >= 0.5 = Spoof (Palsu)
-    outputs = Dense(1, activation='sigmoid')(x)
+    # 7. Kepala Klasifikasi
+    dense1 = Dense(128, activation='relu')(merged)
+    dense2 = Dropout(0.5)(dense1)
+    outputs = Dense(1, activation='sigmoid', name='output')(dense2)
 
-    # 5. Rangkai tubuh (base) dan kepala (output) menjadi satu model utuh
-    model = Model(inputs=base_model.input, outputs=outputs)
-
-    # 6. Atur cara model belajar (Compile)
+    # 8. Rangkai dan Compile
+    model = Model(inputs=[rgb_input, fft_input], outputs=outputs)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
         loss='binary_crossentropy',
