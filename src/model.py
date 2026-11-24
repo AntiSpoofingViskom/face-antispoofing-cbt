@@ -1,7 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV3Small
-from tensorflow.keras.layers import Dense, Dropout, Input, Concatenate
-from tensorflow.keras.models import Model
+from keras.applications import MobileNetV3Small
+from keras.layers import Dense, Dropout, Input, Concatenate
+from keras.models import Model
 
 def build_model(rgb_shape=(224, 224, 3), fft_shape=(224, 224, 3)):
     """Membangun arsitektur model Dual-Input dengan MobileNetV3Small."""

@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import yaml
-from tensorflow.keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 
 from model_rgb_only import build_model_rgb
 
