@@ -1,12 +1,16 @@
-tensorflow
-mediapipe
-opencv-python==4.9.0.80
-numpy==1.26.4
-pandas==2.2.1
-scikit-learn==1.4.1.post1
-matplotlib==3.8.3
+tensorflow==2.21.0
+mediapipe==1.2.2
+opencv-python==5.0.0.93
+numpy==2.5.4
+pandas==3.1.1
+matplotlib==3.11.2
+pillow==13.0.0
 pyyaml==6.0.1
-streamlit==1.31.1
-streamlit-webrtc==0.47.1
+# scikit-learn sengaja tidak dipakai: versi lama bentrok dengan NumPy 2.x
+# (Keras mengimpornya bila ada, lalu gagal dengan "numpy.dtype size changed").
+# Streamlit 1.67 is the first line allowing pillow 13 (pillow<14),
+# pandas 3.x (pandas<4) and pyarrow 26 (pyarrow<27); all need NumPy 2.x.
+streamlit==1.67.0
+streamlit-webrtc==0.79.1
 streamlit-autorefresh==1.0.1
-pillow==10.2.0
+pyarrow==26.0.1
