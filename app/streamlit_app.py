@@ -488,9 +488,8 @@ class LivenessVideoProcessor(VideoProcessorBase):
         self.state = state
         self._scores: deque[float] = deque(maxlen=60)
         self._frame_index = 0
-        # FPS dihitung dari jumlah frame dalam 1 detik, bukan dari 1/delta.
-        # Ini mencegah lonjakan 100+ FPS ketika frame datang bergelombang.
-        self._frame_times: deque[float] = deque()
+        self._last_frame_at = time.perf_counter()
+        self._last_predict_at = 0.0
         self._fps = 0.0
         self._snapshot = LiveSnapshot(message="Menunggu frame pertama...")
 
@@ -556,12 +555,13 @@ class LivenessVideoProcessor(VideoProcessorBase):
             time.sleep(self.settings.predict_interval)
 
     def _update_fps(self) -> None:
-        """Hitung FPS nyata dari frame yang diterima dalam window 1 detik."""
         now = time.perf_counter()
-        self._frame_times.append(now)
-        while self._frame_times and now - self._frame_times[0] > 1.0:
-            self._frame_times.popleft()
-        self._fps = float(len(self._frame_times))
+        delta = now - self._last_frame_at
+        self._last_frame_at = now
+        if delta <= 0:
+            return
+        instant = 1.0 / delta
+        self._fps = instant if self._fps == 0 else (0.85 * self._fps + 0.15 * instant)
 
     def recv(self, frame: Any) -> Any:
         image = frame.to_ndarray(format="bgr24")
@@ -1161,31 +1161,6 @@ def schedule_live_refresh(interval_seconds: float) -> None:
     st.rerun()
 
 
-@st.fragment(run_every=0.5)
-def render_live_header_fragment(threshold: float) -> None:
-    """Perbarui indikator status tanpa menjalankan ulang seluruh halaman."""
-    state = st.session_state.get("live_state")
-    snapshot = state.snapshot() if isinstance(state, LiveState) else None
-    render_viewport_header(snapshot, threshold)
-
-
-@st.fragment(run_every=0.5)
-def render_live_status_fragment(
-    threshold: float,
-    active: bool,
-    show_previews: bool,
-    fixed_snapshot: LiveSnapshot | None = None,
-) -> None:
-    """Panel status & pratinjau diperbarui tiap 0,5 detik; stream WebRTC tetap utuh."""
-    state = st.session_state.get("live_state")
-    snapshot = fixed_snapshot
-    if snapshot is None and isinstance(state, LiveState):
-        snapshot = state.snapshot()
-    render_side_panel(snapshot, threshold, active=active)
-    if show_previews:
-        render_previews(snapshot)
-
-
 def render_model_tab(engine: LivenessEngine | None, engine_error: str | None, model_path: Path) -> None:
     render_html(
         """
@@ -1365,8 +1340,10 @@ def main() -> None:
         is_live = False
 
         with left:
+            rail_snapshot = live_state.snapshot()
+
             with st.container(border=False, key="app_viewport"):
-                render_live_header_fragment(threshold)
+                render_viewport_header(rail_snapshot, threshold)
                 if source.startswith("WebRTC"):
                     if not WEBRTC_AVAILABLE:
                         st.error("Mode WebRTC tidak tersedia di environment ini.")
@@ -1380,18 +1357,13 @@ def main() -> None:
                             ),
                             media_stream_constraints={
                                 "video": {
-                                    # Resolusi tetap 720p sesuai permintaan.
                                     "width": {"ideal": 1280},
                                     "height": {"ideal": 720},
-                                    # Minta 60 FPS; browser fallback ke 30 bila kamera tidak mendukung.
-                                    "frameRate": {"ideal": 60, "max": 60},
+                                    "frameRate": {"ideal": 24, "max": 30},
                                 },
                                 "audio": False,
                             },
-                            # recv() hanya ~3 ms, jadi diproses langsung agar tidak ada
-                            # antrean frame yang datang bergelombang (stutter).
-                            async_processing=False,
-                            video_receiver_size=1,
+                            async_processing=True,
                             rtc_configuration={
                                 "iceServers": [
                                     {"urls": ["stun:stun.l.google.com:19302"]},
@@ -1445,13 +1417,22 @@ def main() -> None:
                                     st.error(f"Gagal memproses frame: {exc}")
 
         with right:
-            # Fragment: hanya panel ini yang di-refresh, komponen WebRTC tidak ikut rerun.
-            render_live_status_fragment(
+            render_side_panel(
+                display_snapshot if display_snapshot is not None else live_state.snapshot(),
                 threshold,
                 active=display_snapshot is not None or is_live,
-                show_previews=show_previews,
-                fixed_snapshot=display_snapshot,
             )
+
+            current_snapshot = display_snapshot if display_snapshot is not None else (
+                live_state.snapshot() if is_live else None
+            )
+
+        if show_previews:
+            render_previews(current_snapshot)
+
+        if source.startswith("WebRTC") and WEBRTC_AVAILABLE and engine is not None:
+            if is_live:
+                schedule_live_refresh(2.0)
 
     with tab_model:
         render_model_tab(engine, engine_error, model_path)
