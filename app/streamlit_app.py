@@ -39,12 +39,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.model_paths import discover_model_files as _discover_model_files
+from src.model_paths import resolve_default_model_path
+
 MODELS_DIR = ROOT / "models"
 FACE_MODEL_PATH = ROOT / "blaze_face_short_range.tflite"
-DEFAULT_MODEL_PATH = MODELS_DIR / "model.weights.h5"
+# Otomatis memilih *.keras terbaru bila ada, lalu model.weights.h5, lalu *.h5 lain.
+DEFAULT_MODEL_PATH = resolve_default_model_path(MODELS_DIR)
 DEFAULT_INPUT_SIZE = (224, 224)
-# File model yang didukung (bisa full model .keras/.h5 atau file weights .weights.h5)
-SUPPORTED_MODEL_EXTENSIONS = ("*.h5", "*.keras", "*.hdf5")
+# File model yang didukung (full model .keras/.h5 atau bobot .weights.h5)
+SUPPORTED_MODEL_EXTENSIONS = ("*.keras", "*.h5", "*.hdf5")
 
 # File .h5 kosong/terpotong biasanya hanya berisi header HDF5 (~1 KB).
 MIN_VALID_MODEL_BYTES = 1024
@@ -599,15 +603,7 @@ def load_config() -> dict[str, Any]:
 
 
 def discover_models() -> list[Path]:
-    if not MODELS_DIR.exists():
-        return []
-    found: set[Path] = set()
-    for pattern in SUPPORTED_MODEL_EXTENSIONS:
-        try:
-            found.update(MODELS_DIR.glob(pattern))
-        except OSError:
-            continue
-    return sorted(found, key=lambda path: path.stat().st_mtime, reverse=True)
+    return _discover_model_files(MODELS_DIR)
 
 
 def resolve_path(raw: str) -> Path:
@@ -1255,9 +1251,10 @@ def main() -> None:
     margin_ratio = float(preprocessing_cfg.get("margin_ratio", 0.15))
 
     model_files = discover_models()
+    preferred_model = resolve_default_model_path(MODELS_DIR)
     default_index = 0
     for index, path in enumerate(model_files):
-        if path.name == DEFAULT_MODEL_PATH.name:
+        if path == preferred_model or path.name == preferred_model.name:
             default_index = index
             break
 
@@ -1276,8 +1273,11 @@ def main() -> None:
             selected_name = st.selectbox("Bobot model", labels, index=default_index)
             model_path = model_files[labels.index(selected_name)]
         else:
-            st.warning("Folder `models/` kosong. Letakkan `antispoofing_model.h5` di sana.")
-            raw_path = st.text_input("Path bobot", value=str(DEFAULT_MODEL_PATH))
+            st.warning(
+                "Folder `models/` kosong. Letakkan `model.keras` (disarankan) "
+                "atau `model.weights.h5` di sana."
+            )
+            raw_path = st.text_input("Path bobot", value=str(preferred_model))
             model_path = resolve_path(raw_path)
 
         st.caption(f"Model: `{model_path}`")
