@@ -47,7 +47,7 @@ DEFAULT_INPUT_SIZE = (224, 224)
 SUPPORTED_MODEL_EXTENSIONS = ("*.h5", "*.keras", "*.hdf5")
 
 # File .h5 kosong/terpotong biasanya hanya berisi header HDF5 (~1 KB).
-MIN_VALID_MODEL_BYTES = 0
+MIN_VALID_MODEL_BYTES = 1024
 
 
 
@@ -190,29 +190,35 @@ class LivenessEngine:
         import json
         import tensorflow as tf
 
-        # Coba muat langsung jika file berupa full model (arsitektur + bobot)
-        try:
-            return tf.keras.models.load_model(str(model_path), compile=False)
-        except Exception as load_err:
-            # Jika file hanya berupa bobot (misal: model.weights.h5),
-            # cari config arsitektur model di direktori yang sama (config.json)
-            config_candidates = [
-                model_path.parent / "config.json",
-                model_path.parent / f"{model_path.stem}.config.json",
-                MODELS_DIR / "config.json",
-            ]
-            for config_path in config_candidates:
-                if config_path.exists():
-                    try:
-                        with open(config_path, "r", encoding="utf-8") as f:
-                            cfg = json.load(f)
-                        model = tf.keras.models.model_from_json(json.dumps(cfg))
-                        model.load_weights(str(model_path))
-                        return model
-                    except Exception:
-                        continue
-            # Jika tetap gagal, re-raise error asli
-            raise load_err
+        # File *.weights.h5 hanya berisi bobot. Jangan coba load_model()
+        # karena pasti gagal dan memakan waktu; langsung susun dari config.
+        weights_only = model_path.name.endswith((".weights.h5", ".weights.hdf5"))
+        load_err: Exception | None = None
+        if not weights_only:
+            try:
+                return tf.keras.models.load_model(str(model_path), compile=False)
+            except Exception as err:
+                load_err = err
+
+        config_candidates = [
+            model_path.parent / "config.json",
+            model_path.parent / f"{model_path.stem}.config.json",
+            MODELS_DIR / "config.json",
+        ]
+        for config_path in config_candidates:
+            if not config_path.exists():
+                continue
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                model = tf.keras.models.model_from_json(json.dumps(cfg))
+                model.load_weights(str(model_path))
+                return model
+            except Exception as err:
+                load_err = err
+                continue
+
+        raise load_err or RuntimeError(f"Model tidak dapat dimuat: {model_path}")
 
     # -- model introspection -------------------------------------------------
     def _resolve_input_names(self) -> list[str]:
