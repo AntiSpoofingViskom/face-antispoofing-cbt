@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
+from src.model_paths import resolve_default_model_path
 from src.preprocessing import FacePreprocessor
 
 
@@ -12,7 +13,8 @@ class LivenessDetector:
     def __init__(self, model_path=None, face_model_path=None):
         root = Path(__file__).resolve().parents[1]
         if model_path is None:
-            model_path = root / "models" / "model.weights.h5"
+            # Prioritas: *.keras terbaru -> model.weights.h5 -> *.h5 lain.
+            model_path = resolve_default_model_path(root / "models")
         else:
             model_path = Path(model_path)
             if not model_path.is_absolute():

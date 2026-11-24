@@ -1,11 +1,13 @@
 import collections
 import os
 import urllib.request
+from pathlib import Path
 
 import cv2
 
 from src.inference import LivenessDetector
 from src.face_recognizer import FaceRecognizer
+from src.model_paths import resolve_default_model_path
 
 
 HISTORY_LENGTH = 30
@@ -36,14 +38,14 @@ def quality_message(face_crop):
 
 def main():
     print("Memuat model AI...")
-    model_path = "models/model.weights.h5"
-    if not os.path.exists(model_path):
-        model_path = "models/antispoofing_model.h5"
+    model_path = resolve_default_model_path(Path(__file__).resolve().parent / "models")
 
-    if not os.path.exists(model_path):
+    if not model_path.exists():
         print(f"Error: Model tidak ditemukan di {model_path}")
+        print("Letakkan file model (.keras / .h5) di folder models/.")
         return
 
+    print(f"Menggunakan model: {model_path}")
     detector = LivenessDetector(model_path=model_path)
     recognizer = FaceRecognizer()
     print("Model liveness dan face recognition berhasil dimuat!")
