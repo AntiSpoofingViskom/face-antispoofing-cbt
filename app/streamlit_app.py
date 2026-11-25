@@ -1,4 +1,4 @@
-"""streamlit app - Web User Interface for Face Anti-Spoofing (Liveness Detection).
+﻿"""streamlit app - Web User Interface for Face Anti-Spoofing (Liveness Detection).
 Jalankan dari root project::
     streamlit run app/streamlit_app.py
 
@@ -849,27 +849,27 @@ html, body, .stApp {
 .app-panel {
     background: var(--surface);
     border-radius: var(--radius);
-    padding: 1rem 1.1rem 0.9rem;
+    padding: 0.8rem 1rem 0.72rem;
     box-shadow: 0 2px 0 rgba(255, 255, 255, 0.65) inset;
 }
 .app-panel-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
 .app-panel-top .app-chip { background: var(--white); }
 .app-verdict {
     display: flex; align-items: center; gap: 0.5rem;
-    margin: 0.5rem 0 0.2rem;
+    margin: 0.4rem 0 0.15rem;
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: clamp(1.2rem, 1.55vw, 1.5rem);
     font-weight: 800; letter-spacing: -0.025em; line-height: 1.1;
 }
 .app-verdict-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
-.app-note { margin: 0 0 0.65rem; font-size: 0.75rem; line-height: 1.4; color: var(--secondary); font-weight: 500; }
+.app-note { margin: 0 0 0.45rem; font-size: 0.75rem; line-height: 1.4; color: var(--secondary); font-weight: 500; }
 .app-meter { height: 8px; border-radius: 999px; background: var(--white); overflow: hidden; }
 .app-meter > span { display: block; height: 100%; border-radius: 999px; transition: width 0.3s ease; }
 .app-meter-row {
-    display: flex; justify-content: space-between; margin-top: 0.28rem;
+    display: flex; justify-content: space-between; margin-top: 0.22rem;
     font-size: 0.66rem; font-weight: 600; color: var(--secondary);
 }
-.app-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.7rem; }
+.app-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin-top: 0.5rem; }
 .app-stat { background: var(--white); border-radius: 15px; padding: 0.45rem 0.7rem 0.5rem; }
 .app-stat span {
     display: block; font-size: 0.58rem; font-weight: 600; letter-spacing: 0.1em;
@@ -883,8 +883,36 @@ html, body, .stApp {
 }
 .app-panel-foot {
     display: flex; flex-wrap: wrap; gap: 0.25rem 0.7rem;
-    margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--strong);
+    margin-top: 0.42rem; padding-top: 0.36rem; border-top: 1px solid var(--strong);
     font-size: 0.63rem; font-weight: 500; color: var(--secondary);
+}
+
+/* ---------- grid preview kompak (RGB + FFT) ---------- */
+.st-key-app_previews { margin-top: 0.4rem; }
+.st-key-app_previews [data-testid="stVerticalBlock"] { gap: 0.28rem !important; }
+.st-key-app_previews [data-testid="stHorizontalBlock"] { gap: 0.45rem !important; }
+.st-key-app_previews [data-testid="stImage"] { margin: 0 !important; }
+.st-key-app_previews [data-testid="stImage"] img {
+    width: 100% !important;
+    height: clamp(70px, 10.5vh, 104px) !important;
+    object-fit: cover !important;
+    border-radius: 14px !important;
+    background: var(--white);
+    box-shadow: 0 2px 10px rgba(9, 31, 80, 0.08);
+}
+.st-key-app_previews [data-testid="stCaptionContainer"] p {
+    text-align: center; margin: 0.12rem 0 0;
+    font-size: 0.58rem !important; font-weight: 600 !important;
+    color: var(--muted) !important; letter-spacing: 0.02em;
+}
+.app-prev-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.app-thumb-empty {
+    height: clamp(70px, 10.5vh, 104px);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 0.68rem; font-weight: 600;
+    letter-spacing: 0.08em;
 }
 
 /* ---------- tabs sebagai segmented pill ---------- */
@@ -1134,18 +1162,25 @@ def render_side_panel(snapshot: LiveSnapshot | None, threshold: float, active: b
 
 
 def render_previews(snapshot: LiveSnapshot | None) -> None:
-    if snapshot is None:
-        return
-    with st.expander("Model input preview (RGB & FFT)", expanded=False):
-        col_rgb, col_fft = st.columns(2)
-        if snapshot.face_rgb is not None:
-            col_rgb.image(snapshot.face_rgb, caption="RGB crop (MobileNetV3 input)")
+    """Grid kompak RGB + FFT di bawah panel hasil agar tetap satu layar."""
+    with st.container(key="app_previews"):
+        render_html(
+            """
+            <div class="app-prev-head">
+                <span class="app-mono">Model input</span>
+                <span class="app-chip">RGB &middot; FFT</span>
+            </div>
+            """
+        )
+        col_rgb, col_fft = st.columns(2, gap="small")
+        if snapshot is not None and snapshot.face_rgb is not None:
+            col_rgb.image(snapshot.face_rgb, caption="RGB crop")
         else:
-            col_rgb.info("No face crop yet.")
-        if snapshot.fft_rgb is not None:
-            col_fft.image(snapshot.fft_rgb, caption="2D FFT magnitude spectrum")
+            col_rgb.markdown('<div class="app-thumb-empty">RGB</div>', unsafe_allow_html=True)
+        if snapshot is not None and snapshot.fft_rgb is not None:
+            col_fft.image(snapshot.fft_rgb, caption="FFT")
         else:
-            col_fft.info("No FFT spectrum yet.")
+            col_fft.markdown('<div class="app-thumb-empty">FFT</div>', unsafe_allow_html=True)
 
 
 def schedule_live_refresh(interval_seconds: float) -> None:
@@ -1300,7 +1335,7 @@ def main() -> None:
         )
 
         mirror = st.checkbox("Mirror kamera", value=True)
-        show_previews = st.checkbox("Tampilkan crop & FFT", value=False)
+        show_previews = st.checkbox("Tampilkan crop & FFT", value=True)
 
         reload_clicked = st.button("Muat ulang model", use_container_width=True)
 
@@ -1423,12 +1458,11 @@ def main() -> None:
                 active=display_snapshot is not None or is_live,
             )
 
-            current_snapshot = display_snapshot if display_snapshot is not None else (
-                live_state.snapshot() if is_live else None
-            )
-
-        if show_previews:
-            render_previews(current_snapshot)
+            preview_snapshot = display_snapshot
+            if preview_snapshot is None and is_live:
+                preview_snapshot = live_state.snapshot()
+            if show_previews:
+                render_previews(preview_snapshot)
 
         if source.startswith("WebRTC") and WEBRTC_AVAILABLE and engine is not None:
             if is_live:
