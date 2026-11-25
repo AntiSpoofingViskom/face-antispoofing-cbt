@@ -10,12 +10,12 @@ MediaPipe Face Detection, 2D FFT, dan MobileNetV3.
 | `src/` | Pipeline data, preprocessing, model, training, inference |
 | `app/` | Web UI Streamlit (Role 3) |
 | `configs/` | Konfigurasi project |
-| `models/` | Bobot model hasil training (tidak di-commit) |
+| `models/` | Bobot model hasil training (di-commit agar siap pakai) |
 | `reports/` | Grafik evaluasi dan dokumentasi |
 
 ## File model yang didukung
 
-Letakkan file model di folder `models/` (folder ini tidak di-commit ke Git).
+File model disimpan di folder `models/` dan sudah ikut di-commit ke Git.
 Aplikasi web dan `test_webcam.py` mendeteksinya otomatis dengan urutan:
 
 1. `model.keras` atau `antispoofing_model.keras`
