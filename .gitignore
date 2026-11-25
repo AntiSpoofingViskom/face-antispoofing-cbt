@@ -219,12 +219,17 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Custom Dataset & Model (Jangan di-upload ke GitHub)
+# Custom dataset (Jangan di-upload ke GitHub)
 datasets/
-models/
 *.mp4
 *.h5
 
 data/
 *.jpg
 *.png
+
+# Folder model sengaja di-commit agar aplikasi bisa langsung dipakai.
+# Aturan ini mengOverride ignore *.h5 di atas khusus untuk isi models/.
+!models/
+!models/**
+!models/*.h5
