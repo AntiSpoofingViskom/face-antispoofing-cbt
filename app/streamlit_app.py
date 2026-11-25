@@ -737,7 +737,7 @@ html, body, .stApp {
 [data-testid="stMain"] { background: var(--page); }
 .block-container {
     max-width: 1440px;
-    padding: 0.6rem 1.6rem 0.7rem !important;
+    padding: 0.45rem 1.6rem 0.6rem !important;
 }
 
 /* ---------- navbar pil ---------- */
@@ -747,7 +747,7 @@ html, body, .stApp {
     border-radius: var(--radius);
     padding: 0.5rem 0.7rem 0.5rem 0.85rem;
     box-shadow: 0 6px 20px rgba(9, 31, 80, 0.13);
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.6rem;
 }
 .app-brand { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
 .app-logo {
@@ -778,7 +778,7 @@ html, body, .stApp {
 /* ---------- hero ---------- */
 .app-hero {
     display: flex; align-items: flex-end; justify-content: space-between;
-    gap: 1.4rem; margin: 0.15rem 0 0.9rem;
+    gap: 1.4rem; margin: 0.1rem 0 0.65rem;
 }
 .app-tag {
     display: inline-block; border: 1px solid var(--strong); border-radius: 999px;
@@ -881,12 +881,6 @@ html, body, .stApp {
     font-size: 1.02rem; font-weight: 800; letter-spacing: -0.02em; color: var(--brand);
     font-variant-numeric: tabular-nums;
 }
-.app-panel-foot {
-    display: flex; flex-wrap: wrap; gap: 0.25rem 0.7rem;
-    margin-top: 0.42rem; padding-top: 0.36rem; border-top: 1px solid var(--strong);
-    font-size: 0.63rem; font-weight: 500; color: var(--secondary);
-}
-
 /* ---------- grid preview kompak (RGB + FFT) ---------- */
 .st-key-app_previews { margin-top: 0.4rem; }
 .st-key-app_previews [data-testid="stVerticalBlock"] { gap: 0.28rem !important; }
@@ -894,7 +888,7 @@ html, body, .stApp {
 .st-key-app_previews [data-testid="stImage"] { margin: 0 !important; }
 .st-key-app_previews [data-testid="stImage"] img {
     width: 100% !important;
-    height: clamp(70px, 10.5vh, 104px) !important;
+    height: clamp(110px, 18vh, 180px) !important;
     object-fit: cover !important;
     border-radius: 14px !important;
     background: var(--white);
@@ -907,7 +901,7 @@ html, body, .stApp {
 }
 .app-prev-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
 .app-thumb-empty {
-    height: clamp(70px, 10.5vh, 104px);
+    height: clamp(110px, 18vh, 180px);
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.72);
     display: grid; place-items: center;
@@ -1151,11 +1145,6 @@ def render_side_panel(snapshot: LiveSnapshot | None, threshold: float, active: b
                 <div class="app-stat"><span>Frame rate</span><strong>{snapshot.fps:.1f}</strong></div>
                 <div class="app-stat"><span>Frame</span><strong>{snapshot.frame_index}</strong></div>
             </div>
-            <div class="app-panel-foot">
-                <span>Age &mdash;</span>
-                <span>Emotion &mdash;</span>
-                <span>head belum tersedia</span>
-            </div>
         </aside>
         """
     )
@@ -1369,7 +1358,7 @@ def main() -> None:
     tab_live, tab_model = st.tabs(["Live viewport", "Model"])
 
     with tab_live:
-        left, right = st.columns([3, 2], gap="medium")
+        left, right = st.columns([5, 4], gap="medium")
         display_snapshot: LiveSnapshot | None = None
         current_snapshot: LiveSnapshot | None = None
         is_live = False
